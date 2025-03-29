@@ -1,0 +1,14 @@
+.babylon-scene{
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.reset-camera{
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+}
+.reset-camera:hover{
+    cursor: pointer;
+}
