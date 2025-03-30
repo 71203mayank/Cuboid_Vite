@@ -1,18 +1,26 @@
-"use client";
-
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as BABYLON from "@babylonjs/core";
 import "./BabylonScene.css"
 import EditBar from "../editBar/EditBar";
+import { useAppContext } from "../../AppContext";
+import earcut from "earcut"
 
 const BabylonScene : React.FC = () => {
+    const {mode} = useAppContext(); 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sceneRef = useRef<BABYLON.Scene | null>(null);
+    const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
     const initialCameraState = useRef<{alpha: number; beta: number; radius: number}>({
         alpha: Math.PI/2,
         beta: Math.PI/4,
         radius: 10
     })
+
+    const drawingPoints = useRef<BABYLON.Vector2[]>([]); // Vector3 array to store the points on the canvas
+    const shapeMeshRef = useRef<BABYLON.Mesh | null>(null); // Stores closed shapes
+    const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null);
+    const cursorLineRef = useRef<BABYLON.LinesMesh | null>(null);
+    const [isDrawing, setIsDrawing] = useState<boolean>(false);
 
     useEffect (() => {
         if(canvasRef.current == null ) return;
@@ -35,6 +43,8 @@ const BabylonScene : React.FC = () => {
         
         // diable Zoom scroll
         camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
+        cameraRef.current = camera;
+
         // Light
         const light = new BABYLON.HemisphericLight(
             "Light",
@@ -130,6 +140,171 @@ const BabylonScene : React.FC = () => {
         camera.target = BABYLON.Vector3.Zero();
 
     }
+
+    // function to switch camera to top-view
+    const switchToTopView = (focusPoint: BABYLON.Vector3) => {
+        if(!cameraRef.current) return;
+
+        cameraRef.current.alpha = Math.PI/2; // overhead view
+        cameraRef.current.beta = 0.01; // look down
+        cameraRef.current.radius = 10;
+        cameraRef.current.target = focusPoint;
+
+         // Ensure camera updates immediately
+        cameraRef.current.rebuildAnglesAndRadius();
+
+    }
+
+    const updateLines = () => {
+        if (!sceneRef.current) return;
+        const scene = sceneRef.current;
+    
+        // Convert Vector2[] to Vector3[] for rendering
+        const linePoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+    
+        // Dispose previous lines
+        if (lineMeshRef.current) {
+            lineMeshRef.current.dispose();
+        }
+    
+        // Create new lines
+        lineMeshRef.current = BABYLON.MeshBuilder.CreateLines("drawingLines", { points: linePoints3D }, scene);
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+        if (!isDrawing || drawingPoints.current.length === 0 || !sceneRef.current) return;
+        const scene = sceneRef.current;
+    
+        const pickResult = scene.pick(event.clientX, event.clientY);
+        if (pickResult?.pickedPoint) {
+            const lastPoint = drawingPoints.current[drawingPoints.current.length - 1];
+            const cursorPoint = new BABYLON.Vector2(pickResult.pickedPoint.x, pickResult.pickedPoint.z);
+    
+            // Convert Vector2 to Vector3 for rendering
+            const linePoints3D = [
+                new BABYLON.Vector3(lastPoint.x, 0, lastPoint.y),
+                new BABYLON.Vector3(cursorPoint.x, 0, cursorPoint.y),
+            ];
+    
+            // Dispose old cursor line
+            if (cursorLineRef.current) {
+                cursorLineRef.current.dispose();
+            }
+    
+            // Create new cursor-following line
+            cursorLineRef.current = BABYLON.MeshBuilder.CreateLines("cursorLine", { points: linePoints3D }, scene,);
+        }
+    };
+
+    // function to handle draw shap on cliking mouse-left when mode === Draw
+    const handleCanvasClick = (event: MouseEvent) => {
+        if(mode !== "Draw" || !sceneRef.current) return;
+
+        const scene = sceneRef.current;
+        const pickResult = scene.pick(event.clientX, event.clientY); // camera send a invisible ray to the object, and if it hits the object, it will get (true) and the coordinates of hit.
+
+        if(pickResult && pickResult.pickedPoint) {
+            let clickedPoint = pickResult.pickedPoint.clone(); // creates a new vector and copies the current vector to it.
+
+            let vector2Point = new BABYLON.Vector2(clickedPoint.x, clickedPoint.z);
+
+            // force y coordinate to zero
+            clickedPoint.y = 0;
+
+            // if making the first vertex => set to isDrawing
+            if(!isDrawing){
+                switchToTopView(clickedPoint);
+                setIsDrawing(true);
+            }
+
+            // drawingPoints.current.push(clickedPoint);
+            drawingPoints.current.push(vector2Point);
+            updateLines();
+
+            // add a small sphere to make the point visible
+            const pointMesh = BABYLON.MeshBuilder.CreateSphere(
+                "point",
+                {diameter: 0.2},
+                scene
+            )
+            pointMesh.position = new BABYLON.Vector3(clickedPoint.x, 0, clickedPoint.z);
+
+            // Parent the point to the ground (prevents floating)
+            pointMesh.setParent(scene.getMeshByName("ground"));
+            // Add material to make it bold and visible
+            const pointMaterial = new BABYLON.StandardMaterial("pointMaterial", scene);
+            pointMaterial.diffuseColor = BABYLON.Color3.Red(); //Red color
+            pointMesh.material = pointMaterial;
+
+            // check if shape is closed
+            const points = drawingPoints.current;
+            const distanceThreshold = 0.2;
+
+            // If there are more than 2 vertices and the distance b/w 1st and last points is less than threshold, close it
+            if(points.length > 2 && BABYLON.Vector2.Distance(points[0], points[points.length-1]) < distanceThreshold){
+                alert("shape closed");
+                points.pop();
+                points.push(points[0]);
+                createPolygon(points);
+                drawingPoints.current = [];
+                setIsDrawing(false);
+            }
+        }
+    }
+
+    // Function to create a polygon
+    const createPolygon = (points: BABYLON.Vector2[]) => {
+        if(!sceneRef.current) return;
+
+        const scene = sceneRef.current;
+
+        // convet Vectro3 points to Vector2 [Vector2 is required for polygon]
+        // Convert Vector2[] to Vector3[] for rendering
+        const polygonPoints3D = points.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+
+        console.log("creating polygon", polygonPoints3D);
+        // const polygonPoints: BABYLON.Vector2[] = points.map((p) => new BABYLON.Vector2(p.x, p.z)) as BABYLON.Vector2[];
+
+        // Remove the previous shape if exists
+        if(shapeMeshRef.current){
+            shapeMeshRef.current.dispose();
+        }
+
+        // Fill the shape;
+        shapeMeshRef.current = BABYLON.MeshBuilder.CreatePolygon("polygon", {shape: polygonPoints3D, depth: 0.01}, scene, earcut);
+
+        // Add material to the shape
+        // Add material
+        const polygonMaterial = new BABYLON.StandardMaterial("polygonMaterial", scene);
+        polygonMaterial.diffuseColor = BABYLON.Color3.Red();
+        shapeMeshRef.current.material = polygonMaterial;
+
+        // Remove drawing lines and cursor line
+        if (lineMeshRef.current) lineMeshRef.current.dispose();
+        if (cursorLineRef.current) cursorLineRef.current.dispose();
+    };
+
+    useEffect(() => {
+        if(!canvasRef.current) return;
+
+        const canvas = canvasRef.current;
+        canvas.addEventListener("click", handleCanvasClick);
+
+        return () => {
+            canvas.removeEventListener("click", handleCanvasClick);
+        };
+    }, [mode]);
+
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        const canvas = canvasRef.current;
+    
+        canvas.addEventListener("mousemove", handleMouseMove);
+    
+        return () => {
+            canvas.removeEventListener("mousemove", handleMouseMove);
+        };
+    }, [isDrawing]);
 
     return (
         <div className="babylon-scene">

@@ -3,9 +3,43 @@
     bottom: 10px;
     transform: translateX(-50%);
     left: 50%;
-    height: 50px;
-    width: 250px;
-    border: 1px solid white;
+    /* border: 1px solid white; */
     border-radius: 16px;
-    background-color: black;
+    background-color: rgb(20, 20, 20);
+
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    
+}
+
+.edit-button{
+    height: 42px;
+    width: 42px;
+    /* border: 1px solid white; */
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* transition: background-color ease-in-out 0.5s; */
+}
+
+.edit-button:hover{
+    background-color: rgb(32, 32, 32);
+}
+
+.edit-button-logo{
+    height: 36px;
+    width:36px;
+}
+
+.edit-button-active{
+    background-color: #5599FF;
+    height: 42px;
+    width: 42px;
+    /* border: 1px solid white; */
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
