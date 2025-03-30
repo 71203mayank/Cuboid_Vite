@@ -196,6 +196,40 @@ const BabylonScene : React.FC = () => {
         }
     };
 
+    // function to clear canvas
+    const clearCanvas = () => {
+        if(!sceneRef.current) return;
+        const scene = sceneRef.current;
+
+        // Remove previous shapes
+        if(shapeMeshRef.current){
+            shapeMeshRef.current.dispose();
+            shapeMeshRef.current = null;
+        }
+
+        // Remove all the previous lines
+        if(lineMeshRef.current){
+            lineMeshRef.current.dispose();
+            lineMeshRef.current = null;
+        }
+
+        // Remove all cursor lines
+        if(cursorLineRef.current){
+            cursorLineRef.current.dispose();
+            cursorLineRef.current = null;
+        }
+
+        // Remove all the point meshes from the screen
+        scene.meshes.forEach(mesh => {
+            if(mesh.name.startsWith("points")){
+                mesh.dispose();
+            }
+        })
+
+        // remove the points of array
+        drawingPoints.current =[];
+    }
+
     // function to handle draw shap on cliking mouse-left when mode === Draw
     const handleCanvasClick = (event: MouseEvent) => {
         if(mode !== "Draw" || !sceneRef.current) return;
@@ -213,6 +247,8 @@ const BabylonScene : React.FC = () => {
 
             // if making the first vertex => set to isDrawing
             if(!isDrawing){
+                // drawingPoints.current.splice(0, drawingPoints.current.length);
+                // clearCanvas();
                 switchToTopView(clickedPoint);
                 setIsDrawing(true);
             }
@@ -222,18 +258,20 @@ const BabylonScene : React.FC = () => {
             updateLines();
 
             // add a small sphere to make the point visible
-            const pointMesh = BABYLON.MeshBuilder.CreateSphere(
+            const pointMesh = BABYLON.MeshBuilder.CreateDisc(
                 "point",
-                {diameter: 0.2},
+                {radius: 0.05, tessellation: 16},
                 scene
             )
-            pointMesh.position = new BABYLON.Vector3(clickedPoint.x, 0, clickedPoint.z);
+            pointMesh.position = new BABYLON.Vector3(clickedPoint.x, 0.01, clickedPoint.z);
 
+            // rotate the disc slightly upwards
+            pointMesh.rotation.x = Math.PI / 2;
             // Parent the point to the ground (prevents floating)
             pointMesh.setParent(scene.getMeshByName("ground"));
             // Add material to make it bold and visible
             const pointMaterial = new BABYLON.StandardMaterial("pointMaterial", scene);
-            pointMaterial.diffuseColor = BABYLON.Color3.Red(); //Red color
+            pointMaterial.diffuseColor = BABYLON.Color3.White(); //Red color
             pointMesh.material = pointMaterial;
 
             // check if shape is closed
