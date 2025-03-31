@@ -6,14 +6,16 @@ import { useAppContext } from "../../AppContext";
 import earcut from "earcut"
 import ObjectEditBar from "../objectEditBar/ObjectEditBar";
 
+
+
 const BabylonScene : React.FC = () => {
     const {mode, setMode} = useAppContext(); 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sceneRef = useRef<BABYLON.Scene | null>(null);
     const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
     const initialCameraState = useRef<{alpha: number; beta: number; radius: number}>({
-        alpha: Math.PI/2,
-        beta: Math.PI/4,
+        alpha: Math.PI / 2,
+        beta: Math.PI/2,
         radius: 10
     })
 
@@ -53,7 +55,7 @@ const BabylonScene : React.FC = () => {
         // Light
         const light = new BABYLON.HemisphericLight(
             "Light",
-            new BABYLON.Vector3(1,1,0),
+            new BABYLON.Vector3(1,1,2),
             scene
         )
         light.intensity = 0.7;
@@ -64,6 +66,8 @@ const BabylonScene : React.FC = () => {
             {width: 10, height: 10},
             scene
         );
+        ground.rotation.x = Math.PI / 2;
+        ground.position.z = 0;
     
         // Set Ground Material
         const groundMaterial = new BABYLON.StandardMaterial(
@@ -71,6 +75,7 @@ const BabylonScene : React.FC = () => {
             scene
         );
         groundMaterial.diffuseColor = new BABYLON.Color3(0.5,0.5,0.5);
+        // groundMaterial.alpha = 0.5;
         ground.material = groundMaterial;
 
         // Adding axis to origin
@@ -165,7 +170,7 @@ const BabylonScene : React.FC = () => {
         const scene = sceneRef.current;
     
         // Convert Vector2[] to Vector3[] for rendering
-        const linePoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+        const linePoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, p.y, 0));
     
         // Dispose previous lines
         if (lineMeshRef.current) {
@@ -183,12 +188,12 @@ const BabylonScene : React.FC = () => {
         const pickResult = scene.pick(event.clientX, event.clientY);
         if (pickResult?.pickedPoint) {
             const lastPoint = drawingPoints.current[drawingPoints.current.length - 1];
-            const cursorPoint = new BABYLON.Vector2(pickResult.pickedPoint.x, pickResult.pickedPoint.z);
+            const cursorPoint = new BABYLON.Vector2(pickResult.pickedPoint.x, pickResult.pickedPoint.y);
     
             // Convert Vector2 to Vector3 for rendering
             const linePoints3D = [
-                new BABYLON.Vector3(lastPoint.x, 0, lastPoint.y),
-                new BABYLON.Vector3(cursorPoint.x, 0, cursorPoint.y),
+                new BABYLON.Vector3(lastPoint.x,lastPoint.y, 0 ),
+                new BABYLON.Vector3(cursorPoint.x,cursorPoint.y,0),
             ];
     
             // Dispose old cursor line
@@ -201,184 +206,30 @@ const BabylonScene : React.FC = () => {
         }
     };
 
-    // function to clear canvas
-    // const clearCanvas = () => {
-    //     if(!sceneRef.current) return;
-    //     const scene = sceneRef.current;
-
-    //     // Remove previous shapes
-    //     if(shapeMeshRef.current){
-    //         shapeMeshRef.current.dispose();
-    //         shapeMeshRef.current = null;
-    //     }
-
-    //     // Remove all the previous lines
-    //     if(lineMeshRef.current){
-    //         lineMeshRef.current.dispose();
-    //         lineMeshRef.current = null;
-    //     }
-
-    //     // Remove all cursor lines
-    //     if(cursorLineRef.current){
-    //         cursorLineRef.current.dispose();
-    //         cursorLineRef.current = null;
-    //     }
-
-    //     // Remove all the point meshes from the screen
-    //     scene.meshes.forEach(mesh => {
-    //         if(mesh.name.startsWith("points")){
-    //             mesh.dispose();
-    //         }
-    //     })
-
-    //     // remove the points of array
-    //     drawingPoints.current =[];
-    // }
-
-    // function to update the selection box
-    const updateSelectionBox = (mesh: BABYLON.Mesh) => {
-        if (!sceneRef.current) return;
-
-        const scene = sceneRef.current;
-
-        // Get updated bounding box
+    const showExtrudeButtonAtShapeCenter = (mesh: BABYLON.Mesh, scene: BABYLON.Scene) => {
+        if (!mesh) return;
+    
         const boundingBox = mesh.getBoundingInfo().boundingBox;
-        const min = boundingBox.minimumWorld;
-        const max = boundingBox.maximumWorld;
-
-        // Create a selection box that includes height
-        const boxEdges = [
-            // Bottom rectangle
-            new BABYLON.Vector3(min.x, min.y, min.z),
-            new BABYLON.Vector3(max.x, min.y, min.z),
-            new BABYLON.Vector3(max.x, min.y, max.z),
-            new BABYLON.Vector3(min.x, min.y, max.z),
-            new BABYLON.Vector3(min.x, min.y, min.z),
-
-            // Top rectangle
-            new BABYLON.Vector3(min.x, max.y, min.z),
-            new BABYLON.Vector3(max.x, max.y, min.z),
-            new BABYLON.Vector3(max.x, max.y, max.z),
-            new BABYLON.Vector3(min.x, max.y, max.z),
-            new BABYLON.Vector3(min.x, max.y, min.z),
-
-            // Vertical edges connecting top and bottom
-            new BABYLON.Vector3(min.x, min.y, min.z),
-            new BABYLON.Vector3(min.x, max.y, min.z),
-
-            new BABYLON.Vector3(max.x, min.y, min.z),
-            new BABYLON.Vector3(max.x, max.y, min.z),
-
-            new BABYLON.Vector3(max.x, min.y, max.z),
-            new BABYLON.Vector3(max.x, max.y, max.z),
-
-            new BABYLON.Vector3(min.x, min.y, max.z),
-            new BABYLON.Vector3(min.x, max.y, max.z),
-        ];
-
-        // Dispose old selection box
-        scene.meshes.forEach(item => {
-            if (item.name === "selectionBox") {
-                item.dispose();
-            }
-        });
-
-        // Create new selection box
-        BABYLON.MeshBuilder.CreateLines("selectionBox", { points: boxEdges }, scene);
-    }
-
-    // function to select the object
-    const selectObject = (mesh: BABYLON.Mesh) => {
-        if(!sceneRef.current) return;
-
-        const scene = sceneRef.current;
-
-        // Remove the old selection box;
-        scene.meshes.forEach(item => {
-            if(item.name === "selectionBox"){
-                item.dispose();
-            }
-        })
-
-        // enclose the selected shape within a selection box
-        updateSelectionBox(mesh);
-        
-        setSelectedShape(mesh);
-
-        // show extrude button only if the object is still in 2d
-        if(mode === "Draw"){
-            setShowExtrudeButton(true);
-
-            const boundingBox = mesh.getBoundingInfo().boundingBox;
-
-            // set the extrudeButtonPosition
-            // 1. get the center of the bounding box
-            const center3D = boundingBox.centerWorld;
-
-            const canvas = scene.getEngine().getRenderingCanvas();
-            if(!canvas) return;
-
-            const canvasRect = canvas.getBoundingClientRect();
-            if(canvasRect === null) return;
-
-            // 2. convert that 3D world position to 2D screen position
-            const center2D = BABYLON.Vector3.Project(
-                center3D,
-                BABYLON.Matrix.Identity(),
-                scene.getTransformMatrix(),
-                new BABYLON.Viewport(0,0,canvasRect.width, canvasRect.height)
-            )
-
-            setExtrudeButtonPosition({x: center2D.x, y:center2D.y });
-        }
-
-
-        // // enclosing the current shape within a selection box
-        // const boundingBox = mesh.getBoundingInfo().boundingBox;
-        // const min = boundingBox.minimumWorld;
-        // const max = boundingBox.maximumWorld;
-
-        // // create lines
-        // const boxEdges = [
-        //     new BABYLON.Vector3(min.x, 0.02, min.z),
-        //     new BABYLON.Vector3(max.x, 0.02, min.z),
-        //     new BABYLON.Vector3(max.x, 0.02, max.z),
-        //     new BABYLON.Vector3(min.x, 0.02, max.z),
-        //     new BABYLON.Vector3(min.x, 0.02, min.z),
-        // ]
-
-        // BABYLON.MeshBuilder.CreateLines("selectionBox", {points: boxEdges}, scene);
-        
-
-        // // set the shape selected inside the selection box
-        // setSelectedShape(mesh);
-
-        // // set showExtrudeButton => True
-        // setShowExtrudeButton(true);
-
-        // // set the extrudeButtonPosition
-        // // 1. get the center of the bounding box
-        // const center3D = boundingBox.centerWorld;
-
-        // const canvas = scene.getEngine().getRenderingCanvas();
-        // if(!canvas) return;
-
-        // const canvasRect = canvas.getBoundingClientRect();
-        // if(canvasRect === null) return;
-
-        // // 2. convert that 3D world position to 2D screen position
-        // const center2D = BABYLON.Vector3.Project(
-        //     center3D,
-        //     BABYLON.Matrix.Identity(),
-        //     scene.getTransformMatrix(),
-        //     new BABYLON.Viewport(0,0,canvasRect.width, canvasRect.height)
-        // )
-
-        // setExtrudeButtonPosition({x: center2D.x, y:center2D.y });
-
-        // console.log(center2D);
-        // console.log(center2D.x, center2D.y);
-    }
+        const center3D = boundingBox.centerWorld;
+    
+        const canvas = scene.getEngine().getRenderingCanvas();
+        if (!canvas) return;
+    
+        const canvasRect = canvas.getBoundingClientRect();
+    
+        // Convert 3D world coordinates to 2D screen coordinates
+        const center2D = BABYLON.Vector3.Project(
+            center3D,
+            BABYLON.Matrix.Identity(),
+            scene.getTransformMatrix(),
+            new BABYLON.Viewport(0, 0, canvasRect.width, canvasRect.height)
+        );
+    
+        // Set the position of the extrude button
+        setExtrudeButtonPosition({ x: center2D.x, y: center2D.y });
+        setShowExtrudeButton(true);
+    };
+    
 
     // function to handle draw shap on cliking mouse-left when mode === Draw
     const handleCanvasClick = (event: MouseEvent) => {
@@ -390,10 +241,10 @@ const BabylonScene : React.FC = () => {
         if(pickResult && pickResult.pickedPoint) {
             let clickedPoint = pickResult.pickedPoint.clone(); // creates a new vector and copies the current vector to it.
 
-            let vector2Point = new BABYLON.Vector2(clickedPoint.x, clickedPoint.z);
+            let vector2Point = new BABYLON.Vector2(clickedPoint.x, clickedPoint.y);
 
             // force y coordinate to zero
-            clickedPoint.y = 0;
+            clickedPoint.z = 0;
 
             // if making the first vertex => set to isDrawing
             if(!isDrawing){
@@ -408,21 +259,27 @@ const BabylonScene : React.FC = () => {
             updateLines();
 
             // add a small sphere to make the point visible
-            const pointMesh = BABYLON.MeshBuilder.CreateDisc(
-                "point",
-                {radius: 0.05, tessellation: 16},
-                scene
-            )
-            pointMesh.position = new BABYLON.Vector3(clickedPoint.x, 0.01, clickedPoint.z);
+            // const pointMesh = BABYLON.MeshBuilder.CreateDisc(
+            //     "point",
+            //     {radius: 0.05, tessellation: 16},
+            //     scene
+            // )
+
+            const pointMesh = BABYLON.MeshBuilder.CreateSphere("point", {
+                diameter: 0.1
+            }, scene);
+            pointMesh.position = new BABYLON.Vector3(clickedPoint.x, clickedPoint.y, 0.01);
 
             // rotate the disc slightly upwards
-            pointMesh.rotation.x = Math.PI / 2;
+            // pointMesh.rotation.z = -Math.PI / 2;
             // Parent the point to the ground (prevents floating)
             pointMesh.setParent(scene.getMeshByName("ground"));
             // Add material to make it bold and visible
             const pointMaterial = new BABYLON.StandardMaterial("pointMaterial", scene);
             pointMaterial.diffuseColor = BABYLON.Color3.White(); //Red color
+            // pointMaterial.disableDepthWrite = true; // This makes the marker always render on top
             pointMesh.material = pointMaterial;
+            // pointMesh.renderingGroupId = 1;
 
             // check if shape is closed
             const points = drawingPoints.current;
@@ -437,8 +294,11 @@ const BabylonScene : React.FC = () => {
                 drawingPoints.current = [];
                 setIsDrawing(false);
 
-                if(shapeMeshRef.current !== null){
-                    selectObject(shapeMeshRef.current);
+                // if(shapeMeshRef.current !== null){
+                //     selectObject(shapeMeshRef.current);
+                // }
+                if(shapeMeshRef.current!== null){
+                    showExtrudeButtonAtShapeCenter(shapeMeshRef.current, scene)
                 }
             }
         }
@@ -452,7 +312,8 @@ const BabylonScene : React.FC = () => {
 
         // convet Vectro3 points to Vector2 [Vector2 is required for polygon]
         // Convert Vector2[] to Vector3[] for rendering
-        const polygonPoints3D = points.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+        console.log("points sent", points);
+        const polygonPoints3D = points.map(p => new BABYLON.Vector3(p.x, p.y, 0));
 
         console.log("creating polygon", polygonPoints3D);
         // const polygonPoints: BABYLON.Vector2[] = points.map((p) => new BABYLON.Vector2(p.x, p.z)) as BABYLON.Vector2[];
@@ -463,8 +324,13 @@ const BabylonScene : React.FC = () => {
         }
 
         // Fill the shape;
-        shapeMeshRef.current = BABYLON.MeshBuilder.CreatePolygon("polygon", {shape: polygonPoints3D, depth: 0.01}, scene, earcut);
+        const polygonBuilder = new BABYLON.PolygonMeshBuilder("polygon", points, scene, earcut);
+        // shapeMeshRef.current = BABYLON.MeshBuilder.CreatePolygon("polygon", {shape: polygonPoints3D as BABYLON.Vector3[],depth: 0.01, updatable:true}, scene, earcut);
+        shapeMeshRef.current = polygonBuilder.build(false, 0.01);
 
+        console.log("shape:", shapeMeshRef.current);
+        shapeMeshRef.current.rotation.x = -Math.PI / 2;
+        shapeMeshRef.current.position.z = 0;
         // Add material to the shape
         // Add material
         const polygonMaterial = new BABYLON.StandardMaterial("polygonMaterial", scene);
@@ -498,82 +364,72 @@ const BabylonScene : React.FC = () => {
         };
     }, [isDrawing]);
 
-    const getContoursFromMesh = (mesh: BABYLON.Mesh): BABYLON.Vector2[] => {
-        const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
     
-        if (!positions || positions.length < 6) { // Less than 2 vertices (each needs x, y, z)
-            console.error("❌ Invalid contour data. Not enough vertices.");
-            return [];
-        }
-    
-        const contours: BABYLON.Vector2[] = [];
-    
-        for (let i = 0; i < positions.length; i += 3) {
-            const x = positions[i];
-            const z = positions[i + 2]; // Babylon.js uses X and Z for 2D operations
-            contours.push(new BABYLON.Vector2(x, z));
-        }
-    
-        console.log("✅ Corrected contours format:", contours);
-        return contours;
-    };
 
-    // function to handle extrude
+    //function to handle extrude
     const onClickExtrude = () => {
         console.log("clicked extrude button, going to edit mode...")
-        if(!selectedShape || !sceneRef.current) return;
-        // setMode("Edit");
+        // console.log("selecte shape", selectedShape);
+        // console.log("selected object", selectObject);
 
-        // const contours = selectedShape.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-        // console.log(contours)
-        // if (!contours || contours.length === 0) {
-        //     console.error("Cannot extrude: Shape has no valid contour data.", selectedShape);
-        //     return;
-        // }
-
-        // Convert the mesh vertices to a valid contour format
-        const contours = getContoursFromMesh(selectedShape);
-
-        if (contours.length < 3) {
-            console.error("❌ Not enough points for extrusion.");
-            return;
-        }
-        console.log("✅ Extruding shape with contours:", contours);
+        if (!shapeMeshRef.current || !sceneRef.current) return;
 
         const scene = sceneRef.current;
+        const shapeMesh = shapeMeshRef.current;
 
-        // Remove the 2D shape before creating the 3D shape
-        selectedShape?.dispose();
+        // Get the 2D shape
+        const vertexData = shapeMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+        const shapePoints: BABYLON.Vector3[] = [];
 
-        // Convert 2D shape to points to 3D (Vector3 format)
-        const polygonPoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+        if (vertexData) {
+            for (let i = 0; i < vertexData.length; i += 3) {
+                const x = vertexData[i];
+                const y = vertexData[i + 1];
+                const z = vertexData[i + 2] || 0; // Ensure z exists
+                shapePoints.push(new BABYLON.Vector3(x, y, z));
+            }
+        }
 
-        // Extrude the shape
+        if(shapePoints.length === 0) return;
+
+        console.log("shapePoints", shapePoints);
+
+        // extrude
         const extrudedMesh = BABYLON.MeshBuilder.ExtrudePolygon(
             "extrudedShape",
-            {shape: polygonPoints3D, depth: extrudeHeight},
+            {
+                shape: shapePoints,
+                depth: 10,
+                sideOrientation: BABYLON.Mesh.DOUBLESIDE // Ensure both sides are visible
+            },
             scene,
             earcut
-        );
+        )
 
-        // Assign the new extruded shape as selected
-        setSelectedShape(extrudedMesh);
-
-        // Add material to the 3D shape
-        const material = new BABYLON.StandardMaterial("extrudedMaterial", scene);
-        material.diffuseColor = BABYLON.Color3.Green();
-        extrudedMesh.material = material;
-
-        // update selection box to fit the new 3d object
+        // Rotate the extruded shape to aling with the z axis
+        extrudedMesh.rotation.x = -Math.PI / 2;
+        extrudedMesh.position.y = 0;
         
+        // extrudedMesh.position.z = -5;
+        const material = new BABYLON.StandardMaterial("polygonMaterial", scene);
+        material.diffuseColor = BABYLON.Color3.Red(); // Now it works!
+        shapeMesh.material = material;
 
-        // Switch to Edit mode and show ObjectEditor
+        // Dispose of the old 2D shape
+        shapeMesh.dispose();
+
+        // Store the new extruded shape in the ref
+        shapeMeshRef.current = extrudedMesh;
+
+        // Hide the extrude button
+        setShowExtrudeButton(false);
+
+        // Switch to Edit Mode
         setMode("Edit");
-        setShowExtrudeButton(false);
-
-        
-        setShowExtrudeButton(false);
     }
+
+    
+    
 
     return (
         <div className="babylon-scene">
