@@ -27,7 +27,8 @@ const BabylonScene : React.FC = () => {
     const [selectedShape, setSelectedShape] = useState<BABYLON.Mesh | null>(null);
     const [showExtrudeButton, setShowExtrudeButton] = useState<boolean>(false);
     const [extrudeButtonPosition, setExtrudeButtonPosition] = useState<{x: number, y: number}| null>(null);
-    const [extrudeHeight, setExtrudeHeight] = useState<number>(10);
+    const [extrudeHeight, setExtrudeHeight] = useState<number>(5);
+    // const originalColorRef = useRef<BABYLON.Color3 | null>(null);
 
     useEffect (() => {
         if(canvasRef.current == null ) return;
@@ -229,14 +230,49 @@ const BabylonScene : React.FC = () => {
         setExtrudeButtonPosition({ x: center2D.x, y: center2D.y });
         setShowExtrudeButton(true);
     };
+
+    const selectShape = (mesh: BABYLON.Mesh | null) => {
+        if(!sceneRef.current) return;
+
+        const scene = sceneRef.current;
+
+        // Reset previous selection
+        if(selectedShape){
+            const mat = selectedShape.material as BABYLON.StandardMaterial;
+            if(mat) mat.diffuseColor = BABYLON.Color3.Red();
+        }
+
+        // set new select
+        setSelectedShape(mesh);
+        if(mesh){
+            const highlightMaterial = new BABYLON.StandardMaterial("highlight", scene);
+            highlightMaterial.diffuseColor = BABYLON.Color3.Green(); // Highlight color
+            highlightMaterial.emissiveColor = BABYLON.Color3.Green().scale(0.2);
+            mesh.material = highlightMaterial;
+        }
+    }
     
 
     // function to handle draw shap on cliking mouse-left when mode === Draw
     const handleCanvasClick = (event: MouseEvent) => {
-        if(mode !== "Draw" || !sceneRef.current) return;
+        if(!sceneRef.current) return;
 
         const scene = sceneRef.current;
         const pickResult = scene.pick(event.clientX, event.clientY); // camera send a invisible ray to the object, and if it hits the object, it will get (true) and the coordinates of hit.
+        
+        if (!pickResult?.pickedPoint) return;
+
+        // Handle Selector mode
+        if (mode === "Selector" && pickResult.hit) {
+            if (pickResult.pickedMesh === shapeMeshRef.current) {
+                selectShape(shapeMeshRef.current);
+                setMode("Edit");
+                return;
+            }
+        }
+
+        if(mode !== "Draw") return;
+
 
         if(pickResult && pickResult.pickedPoint) {
             let clickedPoint = pickResult.pickedPoint.clone(); // creates a new vector and copies the current vector to it.
@@ -399,7 +435,7 @@ const BabylonScene : React.FC = () => {
             "extrudedShape",
             {
                 shape: shapePoints,
-                depth: 10,
+                depth: extrudeHeight,
                 sideOrientation: BABYLON.Mesh.DOUBLESIDE // Ensure both sides are visible
             },
             scene,
@@ -424,11 +460,61 @@ const BabylonScene : React.FC = () => {
         // Hide the extrude button
         setShowExtrudeButton(false);
 
+        // After extrusion, select the new mesh
+        selectShape(extrudedMesh);
+
         // Switch to Edit Mode
         setMode("Edit");
     }
 
-    
+    // Function to update extrusion height
+    const updateExtrusionHeight = (newHeight: number) => {
+        setExtrudeHeight(newHeight);
+
+        // If the mesh already exist, update it
+        if(shapeMeshRef.current && mode === "Edit"){
+            const scene = sceneRef.current;
+            if(!scene) return;
+
+            const vertexData = shapeMeshRef.current.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            const shapePoints: BABYLON.Vector3[] = [];
+
+            if (vertexData) {
+                for (let i = 0; i < vertexData.length; i += 3) {
+                    const x = vertexData[i];
+                    const y = vertexData[i + 1];
+                    const z = vertexData[i + 2] || 0;
+                    shapePoints.push(new BABYLON.Vector3(x, y, z));
+                }
+            }
+
+            if (shapePoints.length === 0) return;
+
+            // Dispose old mesh
+            shapeMeshRef.current.dispose();
+
+            // Create new mesh with updated height
+            const extrudedMesh = BABYLON.MeshBuilder.ExtrudePolygon(
+                "extrudedShape",
+                {
+                    shape: shapePoints,
+                    depth: newHeight,
+                    sideOrientation: BABYLON.Mesh.DOUBLESIDE
+                },
+                scene,
+                earcut
+            );
+
+            extrudedMesh.rotation.x = -Math.PI / 2;
+            extrudedMesh.position.y = 0;
+
+            const material = new BABYLON.StandardMaterial("polygonMaterial", scene);
+            material.diffuseColor = BABYLON.Color3.Red();
+            extrudedMesh.material = material;
+
+            shapeMeshRef.current = extrudedMesh;
+        }
+    };
     
 
     return (
@@ -449,7 +535,9 @@ const BabylonScene : React.FC = () => {
                 )
             }
 
-            <ObjectEditBar/>
+            {
+                mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight}/>
+            }
         </div>
     );
 };
