@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode} from "react";
 
-type Mode = "Selector" | "Draw"
+type Mode = "Selector" | "Draw" | "Edit"
 
 interface AppContextType {
     mode: Mode;

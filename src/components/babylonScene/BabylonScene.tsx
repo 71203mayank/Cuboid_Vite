@@ -4,9 +4,10 @@ import "./BabylonScene.css"
 import EditBar from "../editBar/EditBar";
 import { useAppContext } from "../../AppContext";
 import earcut from "earcut"
+import ObjectEditBar from "../objectEditBar/ObjectEditBar";
 
 const BabylonScene : React.FC = () => {
-    const {mode} = useAppContext(); 
+    const {mode, setMode} = useAppContext(); 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sceneRef = useRef<BABYLON.Scene | null>(null);
     const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
@@ -21,6 +22,10 @@ const BabylonScene : React.FC = () => {
     const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null);
     const cursorLineRef = useRef<BABYLON.LinesMesh | null>(null);
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
+    const [selectedShape, setSelectedShape] = useState<BABYLON.Mesh | null>(null);
+    const [showExtrudeButton, setShowExtrudeButton] = useState<boolean>(false);
+    const [extrudeButtonPosition, setExtrudeButtonPosition] = useState<{x: number, y: number}| null>(null);
+    const [extrudeHeight, setExtrudeHeight] = useState<number>(10);
 
     useEffect (() => {
         if(canvasRef.current == null ) return;
@@ -197,37 +202,182 @@ const BabylonScene : React.FC = () => {
     };
 
     // function to clear canvas
-    const clearCanvas = () => {
-        if(!sceneRef.current) return;
+    // const clearCanvas = () => {
+    //     if(!sceneRef.current) return;
+    //     const scene = sceneRef.current;
+
+    //     // Remove previous shapes
+    //     if(shapeMeshRef.current){
+    //         shapeMeshRef.current.dispose();
+    //         shapeMeshRef.current = null;
+    //     }
+
+    //     // Remove all the previous lines
+    //     if(lineMeshRef.current){
+    //         lineMeshRef.current.dispose();
+    //         lineMeshRef.current = null;
+    //     }
+
+    //     // Remove all cursor lines
+    //     if(cursorLineRef.current){
+    //         cursorLineRef.current.dispose();
+    //         cursorLineRef.current = null;
+    //     }
+
+    //     // Remove all the point meshes from the screen
+    //     scene.meshes.forEach(mesh => {
+    //         if(mesh.name.startsWith("points")){
+    //             mesh.dispose();
+    //         }
+    //     })
+
+    //     // remove the points of array
+    //     drawingPoints.current =[];
+    // }
+
+    // function to update the selection box
+    const updateSelectionBox = (mesh: BABYLON.Mesh) => {
+        if (!sceneRef.current) return;
+
         const scene = sceneRef.current;
 
-        // Remove previous shapes
-        if(shapeMeshRef.current){
-            shapeMeshRef.current.dispose();
-            shapeMeshRef.current = null;
-        }
+        // Get updated bounding box
+        const boundingBox = mesh.getBoundingInfo().boundingBox;
+        const min = boundingBox.minimumWorld;
+        const max = boundingBox.maximumWorld;
 
-        // Remove all the previous lines
-        if(lineMeshRef.current){
-            lineMeshRef.current.dispose();
-            lineMeshRef.current = null;
-        }
+        // Create a selection box that includes height
+        const boxEdges = [
+            // Bottom rectangle
+            new BABYLON.Vector3(min.x, min.y, min.z),
+            new BABYLON.Vector3(max.x, min.y, min.z),
+            new BABYLON.Vector3(max.x, min.y, max.z),
+            new BABYLON.Vector3(min.x, min.y, max.z),
+            new BABYLON.Vector3(min.x, min.y, min.z),
 
-        // Remove all cursor lines
-        if(cursorLineRef.current){
-            cursorLineRef.current.dispose();
-            cursorLineRef.current = null;
-        }
+            // Top rectangle
+            new BABYLON.Vector3(min.x, max.y, min.z),
+            new BABYLON.Vector3(max.x, max.y, min.z),
+            new BABYLON.Vector3(max.x, max.y, max.z),
+            new BABYLON.Vector3(min.x, max.y, max.z),
+            new BABYLON.Vector3(min.x, max.y, min.z),
 
-        // Remove all the point meshes from the screen
-        scene.meshes.forEach(mesh => {
-            if(mesh.name.startsWith("points")){
-                mesh.dispose();
+            // Vertical edges connecting top and bottom
+            new BABYLON.Vector3(min.x, min.y, min.z),
+            new BABYLON.Vector3(min.x, max.y, min.z),
+
+            new BABYLON.Vector3(max.x, min.y, min.z),
+            new BABYLON.Vector3(max.x, max.y, min.z),
+
+            new BABYLON.Vector3(max.x, min.y, max.z),
+            new BABYLON.Vector3(max.x, max.y, max.z),
+
+            new BABYLON.Vector3(min.x, min.y, max.z),
+            new BABYLON.Vector3(min.x, max.y, max.z),
+        ];
+
+        // Dispose old selection box
+        scene.meshes.forEach(item => {
+            if (item.name === "selectionBox") {
+                item.dispose();
+            }
+        });
+
+        // Create new selection box
+        BABYLON.MeshBuilder.CreateLines("selectionBox", { points: boxEdges }, scene);
+    }
+
+    // function to select the object
+    const selectObject = (mesh: BABYLON.Mesh) => {
+        if(!sceneRef.current) return;
+
+        const scene = sceneRef.current;
+
+        // Remove the old selection box;
+        scene.meshes.forEach(item => {
+            if(item.name === "selectionBox"){
+                item.dispose();
             }
         })
 
-        // remove the points of array
-        drawingPoints.current =[];
+        // enclose the selected shape within a selection box
+        updateSelectionBox(mesh);
+        
+        setSelectedShape(mesh);
+
+        // show extrude button only if the object is still in 2d
+        if(mode === "Draw"){
+            setShowExtrudeButton(true);
+
+            const boundingBox = mesh.getBoundingInfo().boundingBox;
+
+            // set the extrudeButtonPosition
+            // 1. get the center of the bounding box
+            const center3D = boundingBox.centerWorld;
+
+            const canvas = scene.getEngine().getRenderingCanvas();
+            if(!canvas) return;
+
+            const canvasRect = canvas.getBoundingClientRect();
+            if(canvasRect === null) return;
+
+            // 2. convert that 3D world position to 2D screen position
+            const center2D = BABYLON.Vector3.Project(
+                center3D,
+                BABYLON.Matrix.Identity(),
+                scene.getTransformMatrix(),
+                new BABYLON.Viewport(0,0,canvasRect.width, canvasRect.height)
+            )
+
+            setExtrudeButtonPosition({x: center2D.x, y:center2D.y });
+        }
+
+
+        // // enclosing the current shape within a selection box
+        // const boundingBox = mesh.getBoundingInfo().boundingBox;
+        // const min = boundingBox.minimumWorld;
+        // const max = boundingBox.maximumWorld;
+
+        // // create lines
+        // const boxEdges = [
+        //     new BABYLON.Vector3(min.x, 0.02, min.z),
+        //     new BABYLON.Vector3(max.x, 0.02, min.z),
+        //     new BABYLON.Vector3(max.x, 0.02, max.z),
+        //     new BABYLON.Vector3(min.x, 0.02, max.z),
+        //     new BABYLON.Vector3(min.x, 0.02, min.z),
+        // ]
+
+        // BABYLON.MeshBuilder.CreateLines("selectionBox", {points: boxEdges}, scene);
+        
+
+        // // set the shape selected inside the selection box
+        // setSelectedShape(mesh);
+
+        // // set showExtrudeButton => True
+        // setShowExtrudeButton(true);
+
+        // // set the extrudeButtonPosition
+        // // 1. get the center of the bounding box
+        // const center3D = boundingBox.centerWorld;
+
+        // const canvas = scene.getEngine().getRenderingCanvas();
+        // if(!canvas) return;
+
+        // const canvasRect = canvas.getBoundingClientRect();
+        // if(canvasRect === null) return;
+
+        // // 2. convert that 3D world position to 2D screen position
+        // const center2D = BABYLON.Vector3.Project(
+        //     center3D,
+        //     BABYLON.Matrix.Identity(),
+        //     scene.getTransformMatrix(),
+        //     new BABYLON.Viewport(0,0,canvasRect.width, canvasRect.height)
+        // )
+
+        // setExtrudeButtonPosition({x: center2D.x, y:center2D.y });
+
+        // console.log(center2D);
+        // console.log(center2D.x, center2D.y);
     }
 
     // function to handle draw shap on cliking mouse-left when mode === Draw
@@ -286,6 +436,10 @@ const BabylonScene : React.FC = () => {
                 createPolygon(points);
                 drawingPoints.current = [];
                 setIsDrawing(false);
+
+                if(shapeMeshRef.current !== null){
+                    selectObject(shapeMeshRef.current);
+                }
             }
         }
     }
@@ -344,11 +498,102 @@ const BabylonScene : React.FC = () => {
         };
     }, [isDrawing]);
 
+    const getContoursFromMesh = (mesh: BABYLON.Mesh): BABYLON.Vector2[] => {
+        const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    
+        if (!positions || positions.length < 6) { // Less than 2 vertices (each needs x, y, z)
+            console.error("❌ Invalid contour data. Not enough vertices.");
+            return [];
+        }
+    
+        const contours: BABYLON.Vector2[] = [];
+    
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const z = positions[i + 2]; // Babylon.js uses X and Z for 2D operations
+            contours.push(new BABYLON.Vector2(x, z));
+        }
+    
+        console.log("✅ Corrected contours format:", contours);
+        return contours;
+    };
+
+    // function to handle extrude
+    const onClickExtrude = () => {
+        console.log("clicked extrude button, going to edit mode...")
+        if(!selectedShape || !sceneRef.current) return;
+        // setMode("Edit");
+
+        // const contours = selectedShape.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+        // console.log(contours)
+        // if (!contours || contours.length === 0) {
+        //     console.error("Cannot extrude: Shape has no valid contour data.", selectedShape);
+        //     return;
+        // }
+
+        // Convert the mesh vertices to a valid contour format
+        const contours = getContoursFromMesh(selectedShape);
+
+        if (contours.length < 3) {
+            console.error("❌ Not enough points for extrusion.");
+            return;
+        }
+        console.log("✅ Extruding shape with contours:", contours);
+
+        const scene = sceneRef.current;
+
+        // Remove the 2D shape before creating the 3D shape
+        selectedShape?.dispose();
+
+        // Convert 2D shape to points to 3D (Vector3 format)
+        const polygonPoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, 0, p.y));
+
+        // Extrude the shape
+        const extrudedMesh = BABYLON.MeshBuilder.ExtrudePolygon(
+            "extrudedShape",
+            {shape: polygonPoints3D, depth: extrudeHeight},
+            scene,
+            earcut
+        );
+
+        // Assign the new extruded shape as selected
+        setSelectedShape(extrudedMesh);
+
+        // Add material to the 3D shape
+        const material = new BABYLON.StandardMaterial("extrudedMaterial", scene);
+        material.diffuseColor = BABYLON.Color3.Green();
+        extrudedMesh.material = material;
+
+        // update selection box to fit the new 3d object
+        
+
+        // Switch to Edit mode and show ObjectEditor
+        setMode("Edit");
+        setShowExtrudeButton(false);
+
+        
+        setShowExtrudeButton(false);
+    }
+
     return (
         <div className="babylon-scene">
             <div className="reset-camera" onClick={resetCamera}>Reset Camera</div>
             <canvas ref = {canvasRef} style={{width: "100%", height:"100%"}}/>
             <EditBar/>
+
+            {
+                showExtrudeButton && extrudeButtonPosition && (
+                    <button 
+                    className="edit-button-popup"
+                    style={{position: "absolute", left: extrudeButtonPosition.x, top: extrudeButtonPosition.y}}
+                    onClick={onClickExtrude}
+                    >
+                        Extrude
+                    </button>
+                )
+            }
+
+            <ObjectEditBar/>
         </div>
     );
 };
