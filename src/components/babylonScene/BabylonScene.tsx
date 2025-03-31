@@ -23,11 +23,14 @@ const BabylonScene : React.FC = () => {
     const shapeMeshRef = useRef<BABYLON.Mesh | null>(null); // Stores closed shapes
     const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null);
     const cursorLineRef = useRef<BABYLON.LinesMesh | null>(null);
+    const pointMeshRef = useRef<BABYLON.Mesh[]>([]);
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [selectedShape, setSelectedShape] = useState<BABYLON.Mesh | null>(null);
     const [showExtrudeButton, setShowExtrudeButton] = useState<boolean>(false);
     const [extrudeButtonPosition, setExtrudeButtonPosition] = useState<{x: number, y: number}| null>(null);
     const [extrudeHeight, setExtrudeHeight] = useState<number>(5);
+    const dragBehaviorRef = useRef<BABYLON.PointerDragBehavior | null>(null);
+    // const [wasDragged, setWasDragged] = useState<boolean>(false);
     // const originalColorRef = useRef<BABYLON.Color3 | null>(null);
 
     useEffect (() => {
@@ -135,6 +138,7 @@ const BabylonScene : React.FC = () => {
         return () => {
             engine.dispose();
             canvasRef.current?.removeEventListener("wheel", handleScroll);
+            clearPoints();
         };
     },[]);
 
@@ -150,6 +154,28 @@ const BabylonScene : React.FC = () => {
         camera.radius = initialCameraState.current.radius;
         camera.target = BABYLON.Vector3.Zero();
 
+    }
+
+    useEffect(() => {
+        // Enable/disable drag based on mode
+        setupDragBehavior(mode === "Edit");
+        
+        return () => {
+            if (dragBehaviorRef.current && shapeMeshRef.current) {
+                shapeMeshRef.current.removeBehavior(dragBehaviorRef.current);
+            }
+        };
+    }, [mode, shapeMeshRef.current]);
+
+    // Edit mode logic
+    const enterEditMode = () => {
+        setMode("Edit");
+        setupDragBehavior(true);
+    }
+
+    const exitEditMode = () => {
+        setMode("Selector");
+        setupDragBehavior(false);
     }
 
     // function to switch camera to top-view
@@ -252,6 +278,20 @@ const BabylonScene : React.FC = () => {
         }
     }
     
+    // Function to clear pointMeshRef
+    const clearPoints = () => {
+        if(!sceneRef.current) return;
+
+        // Dispose all the point mesh
+        pointMeshRef.current.forEach(mesh => {
+            if(mesh && !mesh.isDisposed()){
+                mesh.dispose();
+            }
+        })
+
+        // clear the array
+        pointMeshRef.current = [];
+    }
 
     // function to handle draw shap on cliking mouse-left when mode === Draw
     const handleCanvasClick = (event: MouseEvent) => {
@@ -266,7 +306,7 @@ const BabylonScene : React.FC = () => {
         if (mode === "Selector" && pickResult.hit) {
             if (pickResult.pickedMesh === shapeMeshRef.current) {
                 selectShape(shapeMeshRef.current);
-                setMode("Edit");
+                enterEditMode();
                 return;
             }
         }
@@ -286,6 +326,7 @@ const BabylonScene : React.FC = () => {
             if(!isDrawing){
                 // drawingPoints.current.splice(0, drawingPoints.current.length);
                 // clearCanvas();
+                // clearPoints();
                 switchToTopView(clickedPoint);
                 setIsDrawing(true);
             }
@@ -317,6 +358,9 @@ const BabylonScene : React.FC = () => {
             pointMesh.material = pointMaterial;
             // pointMesh.renderingGroupId = 1;
 
+            // store the point mesh
+            pointMeshRef.current.push(pointMesh);
+
             // check if shape is closed
             const points = drawingPoints.current;
             const distanceThreshold = 0.2;
@@ -328,8 +372,11 @@ const BabylonScene : React.FC = () => {
                 points.push(points[0]);
                 createPolygon(points);
                 drawingPoints.current = [];
+                // pointMesh.dispose();
                 setIsDrawing(false);
 
+
+                clearPoints();
                 // if(shapeMeshRef.current !== null){
                 //     selectObject(shapeMeshRef.current);
                 // }
@@ -464,7 +511,8 @@ const BabylonScene : React.FC = () => {
         selectShape(extrudedMesh);
 
         // Switch to Edit Mode
-        setMode("Edit");
+        // setMode("Edit");
+        enterEditMode();
     }
 
     // Function to update extrusion height
@@ -515,6 +563,130 @@ const BabylonScene : React.FC = () => {
             shapeMeshRef.current = extrudedMesh;
         }
     };
+
+    // const confirmPositionUpdate = () => {
+    //     if (!shapeMeshRef.current) return;
+        
+    //     // Force React to recognize the reference update
+    //     const updatedMesh = shapeMeshRef.current;
+    //     shapeMeshRef.current = updatedMesh;
+        
+    //     // Reapply drag behavior if needed
+    //     setupDragBehavior(mode === "Edit");
+    // };
+
+    // const confirmPositionUpdate = () => {
+    //     if (!shapeMeshRef.current || !wasDragged) return;
+        
+    //     // Clone the mesh to ensure a fresh reference
+    //     const currentMesh = shapeMeshRef.current;
+    //     const scene = sceneRef.current;
+        
+    //     // Create new mesh with current properties
+    //     const newMesh = currentMesh.clone("shape-" + Date.now());
+    //     newMesh.position = currentMesh.position.clone();
+    //     newMesh.rotation = currentMesh.rotation.clone();
+    //     newMesh.material = currentMesh.material;
+        
+    //     // Update the reference
+    //     shapeMeshRef.current = newMesh;
+        
+    //     // Dispose old mesh
+    //     currentMesh.dispose();
+        
+    //     // Reset drag state
+    //     setWasDragged(false);
+        
+    //     // Re-enable drag behavior
+    //     setupDragBehavior(true);
+    // };
+
+    // Function to enable/disable draggin of 3D objects
+    const setupDragBehavior = (enable: boolean) => {
+        if(!shapeMeshRef.current || !sceneRef.current) return;
+
+        const mesh = shapeMeshRef.current;
+        
+
+        // Remove all existing drag behavior
+        if(dragBehaviorRef.current){
+            mesh.removeBehavior(dragBehaviorRef.current);
+            dragBehaviorRef.current = null;
+        }
+
+        if(enable && mode === "Edit") {
+            const dragBehavior = new BABYLON.PointerDragBehavior({
+                // dragAxis: new BABYLON.Vector3(1,1,0)
+                dragPlaneNormal: new BABYLON.Vector3(0, 0, 1)
+            });
+
+            dragBehavior.moveAttached = true;
+            dragBehavior.useObjectOrientationForDragging = false;
+            dragBehavior.updateDragPlane = true;
+
+
+            // visual feedback
+            dragBehavior.onDragStartObservable.add(() => {
+                mesh.renderOutline = true;
+                mesh.outlineColor = BABYLON.Color3.Green();
+                mesh.outlineWidth = 0.1;
+                // setWasDragged(false);
+
+                // Important: Update the drag plane to current position
+                // dragBehavior.dragPlanePoint = mesh.absolutePosition.clone();
+            });
+
+            // dragBehavior.onDragObservable.add(() => {
+            //     setWasDragged(true); // Flag that dragging occurred
+            // });
+
+            dragBehavior.onDragEndObservable.add(() => {
+                mesh.renderOutline = false;
+
+                // updateShapeMeshRef();
+                // confirmPositionUpdate();
+            });
+
+            // Add to mesh
+            mesh.addBehavior(dragBehavior);
+            dragBehaviorRef.current = dragBehavior;
+
+             // Enable pointer events
+            mesh.enablePointerMoveEvents = true;
+        }
+    }
+
+    // const updateShapeMeshRef = () => {
+    //     if (!shapeMeshRef.current || !sceneRef.current) return;
+        
+    //     // Clone the current mesh to ensure reference is fresh
+    //     const currentMesh = shapeMeshRef.current;
+    //     const scene = sceneRef.current;
+        
+    //     // Get current vertex data
+    //     const vertexData = BABYLON.VertexData.ExtractFromMesh(currentMesh);
+        
+    //     // Create new mesh (optional - only if you need a clean reference)
+    //     const newMesh = new BABYLON.Mesh(currentMesh.name, scene);
+    //     vertexData.applyToMesh(newMesh);
+        
+    //     // Copy transformations
+    //     newMesh.position = currentMesh.position.clone();
+    //     newMesh.rotation = currentMesh.rotation.clone();
+    //     newMesh.scaling = currentMesh.scaling.clone();
+        
+    //     // Copy material
+    //     newMesh.material = currentMesh.material;
+        
+    //     // Update the reference
+    //     shapeMeshRef.current = newMesh;
+        
+    //     // Dispose old mesh
+    //     currentMesh.dispose();
+        
+    //     // Re-enable drag on new mesh
+    //     setupDragBehavior(true);
+    // };
     
 
     return (
@@ -536,8 +708,27 @@ const BabylonScene : React.FC = () => {
             }
 
             {
-                mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight}/>
+                mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight} onExitEditMode={exitEditMode}/>
             }
+            {/* {
+                mode === "Edit" && wasDragged && (
+                    <button onClick={confirmPositionUpdate}
+                    style={{
+                        position: 'absolute',
+                        bottom: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 100,
+                        padding: '8px 16px',
+                        background: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                    > Confirm New Position </button>
+                )
+            } */}
         </div>
     );
 };

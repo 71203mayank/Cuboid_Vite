@@ -1,13 +1,14 @@
 import "./ObjectEditBar.css"
-import { useAppContext } from "../../AppContext";
+// import { useAppContext } from "../../AppContext";
 
 interface ObjectEditBarProps {
     currentHeight : number;
     onHeightChange: (newHeight: number) => void;
+    onExitEditMode: () => void
 }
 
-const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightChange}) => {
-    const {setMode} = useAppContext();
+const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightChange, onExitEditMode}) => {
+    // const {setMode} = useAppContext();
     const handleHeightIncrement = () => {
         onHeightChange(currentHeight + 1);
     };
@@ -27,7 +28,7 @@ const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightCh
         <div className="object-edit-bar">
             <div className="object-editor-head">
                 Edit Mode
-                <img src="/cross.svg" className="editor-head-cross" onClick={() => setMode("Selector")}></img>
+                <img src="/cross.svg" className="editor-head-cross" onClick={onExitEditMode}></img>
             </div>
             <div className="object-editor-container">
                 <div>
