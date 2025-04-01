@@ -60,6 +60,12 @@ Modes can be selected from the **select bar** at the bottom.
 
 1. Users can adjust the height of the selected object using the dialog box that opens on the right side of the screen.
 2. Users can click and move the 3D object on the **XY plane**.
+3. Users can also delete the seleced shape in this mode.
+
+### **Vertex Edit Mode:**
+1. Click on the third option below the select bar to switch to **Vertex Edit Mode**. Then, click on the 3D shape to enable it.
+2. In this mode, the user can select any of the vertices of the selected shape and move it around by dragging.
+3. An instruction tab with a Save button is given on the right side of the screen.
 
 ### **Additional Features:**
 
