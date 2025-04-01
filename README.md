@@ -94,6 +94,9 @@ I will clearly explain my approach in the following section.
 5. **Encountering the "Earcut not found" error again:** I somehow managed to generate an extrusion of the 2D object using `ExtrudeShape`, but it was along the Y-axis. I then learned that `ExtrudeShape` takes a 2D shape in the XZ plane and extrudes it along the Y-axis. Instead of switching back to the XZ plane, I rotated the extruded 3D shape to align with the XY plane.
 6. **Updating the extrusion height:** Adjusting the height from a button in another component was challenging, requiring a restructuring of the logic. To update the height, I had to create an entirely new 3D object with the new height. However, this caused lag and performance issues because a new 3D object was being created and replacing the old one with each operation.
 7. **Vertex editing:** Using `mesh.getVerticesData()`, I obtained all the vertices and marked them with spheres. However, the orientation was incorrect because I had previously rotated the 3D object. I fixed this by rotating the vertices accordingly. I applied drag operations to the vertices using `PointerDragBehavior()`, but updating the shape dynamically remained a challenge.
+![challenge 1 while implementing vertex edit][public/challenge1.png]
+![challenge 2 while implementing vertex edit][public/challenge2.png]
+![challenge 3 while implementing vertex edit][public/challenge3.png]
 
 ---
 
