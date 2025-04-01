@@ -5,9 +5,10 @@ interface ObjectEditBarProps {
     currentHeight : number;
     onHeightChange: (newHeight: number) => void;
     onExitEditMode: () => void;
+    onClickDelete: () => void;
 }
 
-const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightChange, onExitEditMode}) => {
+const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightChange, onExitEditMode, onClickDelete}) => {
     // const {setMode} = useAppContext();
     const handleHeightIncrement = () => {
         onHeightChange(currentHeight + 1);
@@ -41,20 +42,17 @@ const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightCh
                         <button className="editor-button" onClick={handleHeightIncrement}>+</button>
                     </div>
                 </div>
-                {/* <div className="vertex-edit-section">
-                    <button 
-                        className={`vertex-edit-button ${isVertexEditMode ? 'active' : ''}`}
-                        onClick={onVertexEditToggle}
-                    >
-                        {isVertexEditMode ? 'Exit Vertex Edit' : 'Move Vertices'}
-                    </button>
-                    
-                    {isVertexEditMode && (
-                        <div className="vertex-edit-hint">
-                            Click on any vertex to move it
-                        </div>
-                    )}
-                </div> */}
+                <div>
+                    <div className="editor-option-heading">
+                        Move the shape
+                    </div>
+                    <div className="editor-action-content">
+                        Double-click on the object and drag to move it around the canvas.
+                    </div>
+                </div>
+            </div>
+            <div className="delete-shape-container">
+                <button onClick={onClickDelete}>Delete Shape</button>
             </div>
         </div>
     );

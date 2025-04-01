@@ -32,3 +32,55 @@
     height: 100%;
     width: 100%;
 }
+
+.vertex-edit-dialog{
+    position: absolute;
+    right: 20px;
+    transform: translateY(-50%);
+    top: 50%;
+    height: fit-content;
+    width: 200px;
+    background-color: black;
+    border-radius: 16px;
+    font-size: 14px;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.vertex-edit-heading{
+    height:36px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgb(27, 27, 27);
+    border-radius: 16px 16px 0 0;
+    font-weight: 700;
+}
+
+.instruction-container{
+    flex: 1;
+    padding: 8px;
+}
+
+.instruction-heading{
+    font-weight: 700;
+}
+
+.instruction-button-container{
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.instruction-button-container button{
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+}
+
+.instruction-button-container button:hover{
+    cursor: pointer;
+}

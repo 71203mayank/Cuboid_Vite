@@ -12,7 +12,7 @@ const BabylonScene : React.FC = () => {
     const {mode, setMode} = useAppContext(); 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sceneRef = useRef<BABYLON.Scene | null>(null);
-    const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
+    const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null); // stores the original camera position.
     const initialCameraState = useRef<{alpha: number; beta: number; radius: number}>({
         alpha: Math.PI / 2,
         beta: Math.PI/2,
@@ -21,15 +21,21 @@ const BabylonScene : React.FC = () => {
 
     const drawingPoints = useRef<BABYLON.Vector2[]>([]); // Vector3 array to store the points on the canvas
     const shapeMeshRef = useRef<BABYLON.Mesh | null>(null); // Stores closed shapes
-    const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null);
-    const cursorLineRef = useRef<BABYLON.LinesMesh | null>(null);
-    const pointMeshRef = useRef<BABYLON.Mesh[]>([]);
+    const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null); // Stores the edges of 2D object while drawing.
+    const cursorLineRef = useRef<BABYLON.LinesMesh | null>(null); // Represent the line currently being drawn.
+    const pointMeshRef = useRef<BABYLON.Mesh[]>([]); // stores the vertices of the 2D object
     const [isDrawing, setIsDrawing] = useState<boolean>(false);
     const [selectedShape, setSelectedShape] = useState<BABYLON.Mesh | null>(null);
     const [showExtrudeButton, setShowExtrudeButton] = useState<boolean>(false);
     const [extrudeButtonPosition, setExtrudeButtonPosition] = useState<{x: number, y: number}| null>(null);
     const [extrudeHeight, setExtrudeHeight] = useState<number>(5);
     const dragBehaviorRef = useRef<BABYLON.PointerDragBehavior | null>(null);
+
+    const [vertexEditMode, setVertexEditMode] = useState(false);
+    const [showSaveButton, setShowSaveButton] = useState(false);
+    const vertexSpheres = useRef<BABYLON.Mesh[]>([]);
+    const selectedVertexIndex = useRef<number | null>(null);
+
 
     useEffect (() => {
         if(canvasRef.current == null ) return;
@@ -140,6 +146,7 @@ const BabylonScene : React.FC = () => {
         };
     },[]);
 
+    // Function to reset camera back to its original position
     const resetCamera = () => {
         if(!sceneRef.current) return;
 
@@ -190,11 +197,12 @@ const BabylonScene : React.FC = () => {
 
     }
 
+    // Fuction to add new edge while drawing the 2D object.
     const updateLines = () => {
         if (!sceneRef.current) return;
         const scene = sceneRef.current;
     
-        // Convert Vector2[] to Vector3[] for rendering
+        // Convert Vector2[] to Vector3[]
         const linePoints3D = drawingPoints.current.map(p => new BABYLON.Vector3(p.x, p.y, 0));
     
         // Dispose previous lines
@@ -206,10 +214,12 @@ const BabylonScene : React.FC = () => {
         lineMeshRef.current = BABYLON.MeshBuilder.CreateLines("drawingLines", { points: linePoints3D }, scene);
     };
 
+    // Function to handle mouse events.
     const handleMouseMove = (event: MouseEvent) => {
         if (!isDrawing || drawingPoints.current.length === 0 || !sceneRef.current) return;
         const scene = sceneRef.current;
-    
+        
+        // Extract the point where cursor was clicked.
         const pickResult = scene.pick(event.clientX, event.clientY);
         if (pickResult?.pickedPoint) {
             const lastPoint = drawingPoints.current[drawingPoints.current.length - 1];
@@ -231,6 +241,7 @@ const BabylonScene : React.FC = () => {
         }
     };
 
+    // Function to get the center coordiantes of the 2D object for "Extrude" button
     const showExtrudeButtonAtShapeCenter = (mesh: BABYLON.Mesh, scene: BABYLON.Scene) => {
         if (!mesh) return;
     
@@ -255,6 +266,7 @@ const BabylonScene : React.FC = () => {
         setShowExtrudeButton(true);
     };
 
+    // Function to select a 3D shape
     const selectShape = (mesh: BABYLON.Mesh | null) => {
         if(!sceneRef.current) return;
 
@@ -300,6 +312,14 @@ const BabylonScene : React.FC = () => {
         
         if (!pickResult?.pickedPoint) return;
 
+        // Handle Vertex mode
+        if (mode === "Vertex" && pickResult.hit) {
+            if (pickResult.pickedMesh === shapeMeshRef.current && shapeMeshRef.current!==null) {
+            enableVertexEditMode();
+            return;
+            }
+        }
+
         // Handle Selector mode
         if (mode === "Selector" && pickResult.hit) {
             if (pickResult.pickedMesh === shapeMeshRef.current) {
@@ -322,9 +342,6 @@ const BabylonScene : React.FC = () => {
 
             // if making the first vertex => set to isDrawing
             if(!isDrawing){
-                // drawingPoints.current.splice(0, drawingPoints.current.length);
-                // clearCanvas();
-                // clearPoints();
                 switchToTopView(clickedPoint);
                 setIsDrawing(true);
             }
@@ -332,21 +349,13 @@ const BabylonScene : React.FC = () => {
             // drawingPoints.current.push(clickedPoint);
             drawingPoints.current.push(vector2Point);
             updateLines();
-
-            // add a small sphere to make the point visible
-            // const pointMesh = BABYLON.MeshBuilder.CreateDisc(
-            //     "point",
-            //     {radius: 0.05, tessellation: 16},
-            //     scene
-            // )
-
+            
+            // Create a sphere for the vertex
             const pointMesh = BABYLON.MeshBuilder.CreateSphere("point", {
                 diameter: 0.1
             }, scene);
             pointMesh.position = new BABYLON.Vector3(clickedPoint.x, clickedPoint.y, 0.01);
 
-            // rotate the disc slightly upwards
-            // pointMesh.rotation.z = -Math.PI / 2;
             // Parent the point to the ground (prevents floating)
             pointMesh.setParent(scene.getMeshByName("ground"));
             // Add material to make it bold and visible
@@ -370,14 +379,11 @@ const BabylonScene : React.FC = () => {
                 points.push(points[0]);
                 createPolygon(points);
                 drawingPoints.current = [];
-                // pointMesh.dispose();
+
                 setIsDrawing(false);
 
-
+                // Removing the vertice after compeletion of 2D object.
                 clearPoints();
-                // if(shapeMeshRef.current !== null){
-                //     selectObject(shapeMeshRef.current);
-                // }
                 if(shapeMeshRef.current!== null){
                     showExtrudeButtonAtShapeCenter(shapeMeshRef.current, scene)
                 }
@@ -391,7 +397,6 @@ const BabylonScene : React.FC = () => {
 
         const scene = sceneRef.current;
 
-        // convet Vectro3 points to Vector2 [Vector2 is required for polygon]
         // Convert Vector2[] to Vector3[] for rendering
         console.log("points sent", points);
         const polygonPoints3D = points.map(p => new BABYLON.Vector3(p.x, p.y, 0));
@@ -491,6 +496,9 @@ const BabylonScene : React.FC = () => {
         // Rotate the extruded shape to aling with the z axis
         extrudedMesh.rotation.x = -Math.PI / 2;
         extrudedMesh.position.y = 0;
+
+        // Bake the transformation into the vertices
+        // extrudedMesh.bakeCurrentTransformIntoVertices();
         
         // extrudedMesh.position.z = -5;
         const material = new BABYLON.StandardMaterial("polygonMaterial", scene);
@@ -655,12 +663,281 @@ const BabylonScene : React.FC = () => {
         }
     }
 
+    // Function to delete the shape
+    const handleDeleteShape = () => {
+        if(!sceneRef.current && !shapeMeshRef.current) return;
+
+        shapeMeshRef.current?.dispose();
+        shapeMeshRef.current = null;
+        setSelectedShape(null);
+        setMode("Selector");
+    }
+
+
+    // Function to enable Vertix Edit Mode => It will highligh the vertices of the 3D shape and calls setupVertexDragBehaivor when these vertices are draged.
+    const enableVertexEditMode = () => {
+        if(!sceneRef.current || !shapeMeshRef.current) return;
+
+        const mesh = shapeMeshRef.current;
+        const scene = sceneRef.current;
+
+        // Clear any existing vertex spheres
+        disableVertexEditMode();
+
+        // Get vertex positions
+        const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+        if (!positions) return;
+
+        // Create a rotation matrix for our -PI/2 X-axis rotation
+        const rotationMatrix = BABYLON.Matrix.RotationX(-Math.PI/2);
+        const vertexCount = positions.length / 3;
+
+        // Create spheres for each vertex
+    for (let i = 0; i < positions.length; i += 3) {
+        // Get original vertex position
+        const originalPosition = new BABYLON.Vector3(
+            positions[i],
+            positions[i + 1], 
+            positions[i + 2]
+        );
+        
+        // Apply the inverse rotation to get the position in world space
+        const transformedPosition = BABYLON.Vector3.TransformCoordinates(
+            originalPosition, 
+            rotationMatrix
+        );
+        
+        // Create sphere at transformed position
+        const sphere = BABYLON.MeshBuilder.CreateSphere(
+            `vertex-${i}`, 
+            { diameter: 0.2 }, 
+            scene
+        );
+        sphere.position = transformedPosition;
+        
+        // Make spheres pickable
+        sphere.isPickable = true;
+        
+        // Store original vertex index
+        sphere.metadata = { originalIndex: i };
+        
+        // Add click handler
+        sphere.actionManager = new BABYLON.ActionManager(scene);
+        sphere.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                BABYLON.ActionManager.OnPickTrigger,
+                () => {
+                    selectedVertexIndex.current = i / 3;
+                    setupVertexDragBehavior(sphere, rotationMatrix);
+                }
+            )
+        );
+        
+        // Style the sphere
+        const material = new BABYLON.StandardMaterial("vertex-mat", scene);
+        material.diffuseColor = BABYLON.Color3.Yellow();
+        sphere.material = material;
+        
+        vertexSpheres.current.push(sphere);
+    }
+
+
+        // Only create spheres for the base vertices (first half) : But not working :(
+        for (let i = 0; i < vertexCount / 2; i++) {
+            const originalPos = new BABYLON.Vector3(
+                positions[i * 3],
+                positions[i * 3 + 1],
+                positions[i * 3 + 2]
+            );
+            
+            const worldPos = BABYLON.Vector3.TransformCoordinates(originalPos, rotationMatrix);
+            
+            const sphere = BABYLON.MeshBuilder.CreateSphere(
+                `vertex-${i}`, 
+                { diameter: 0.2 }, 
+                scene
+            );
+            sphere.position = worldPos;
+            sphere.isPickable = true;
+            sphere.metadata = { 
+                originalIndex: i * 3,
+                isBaseVertex: true
+            };
+            
+            // Add drag behavior
+            const dragBehavior = new BABYLON.PointerDragBehavior();
+            dragBehavior.moveAttached = true;
+
+            dragBehavior.onDragObservable.add(() => {
+                // Get the current world position of the sphere
+                const currentWorldPos = sphere.position.clone();
+                
+                // Transform back to model space using inverse rotation
+                const inverseRotationMatrix = rotationMatrix.clone().invert();
+                const modelSpacePos = BABYLON.Vector3.TransformCoordinates(
+                    currentWorldPos, 
+                    inverseRotationMatrix
+                );
+                
+                // Update the original positions array
+                positions[sphere.metadata.originalIndex] = modelSpacePos.x;
+                positions[sphere.metadata.originalIndex + 1] = modelSpacePos.y;
+                positions[sphere.metadata.originalIndex + 2] = modelSpacePos.z;
+                
+                // Update the mesh
+                mesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+                
+                // If you need to update normals after vertex movement
+                mesh.createNormals(true);
+            });
+            
+            sphere.addBehavior(dragBehavior);
+            
+            // Style the sphere
+            const material = new BABYLON.StandardMaterial("vertex-mat", scene);
+            material.diffuseColor = BABYLON.Color3.Yellow();
+            sphere.material = material;
+            
+            vertexSpheres.current.push(sphere);
+        }
+
+        setVertexEditMode(true);
+        setShowSaveButton(true);
+    }
+
+    // Function to disable the vertex edit mode, it deletes all the vertice created and resets the used variables and references.
+    const disableVertexEditMode = () => {
+        vertexSpheres.current.forEach(sphere => sphere.dispose());
+        vertexSpheres.current = [];
+        selectedVertexIndex.current = null;
+        setVertexEditMode(false);
+        setShowSaveButton(false);
+    };
+
+
+    const setupVertexDragBehavior = (sphere: BABYLON.Mesh, rotationMatrix: BABYLON.Matrix) => {
+        if (!shapeMeshRef.current || !sceneRef.current) return;
+        
+        const mesh = shapeMeshRef.current;
+        // const scene = sceneRef.current;
+        
+        const dragBehavior = new BABYLON.PointerDragBehavior({
+            dragPlaneNormal: new BABYLON.Vector3(0, 0, 1)
+        });
+        dragBehavior.moveAttached = true;
+        
+        dragBehavior.onDragObservable.add(() => {
+            if (!sphere.metadata) return;
+            const originalIndex = sphere.metadata.originalIndex;
+            
+            // Get the inverse rotation
+            const inverseMatrix = rotationMatrix.clone();
+            inverseMatrix.invert();
+            
+            // Transform the dragged position back to mesh local space
+            const localPosition = BABYLON.Vector3.TransformCoordinates(
+                sphere.position,
+                inverseMatrix
+            );
+            
+            // Update the main mesh vertex position
+            const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            if (!positions) return;
+            
+            // Update the dragged vertex
+            positions[originalIndex] = localPosition.x;
+            positions[originalIndex + 1] = localPosition.y;
+            positions[originalIndex + 2] = localPosition.z;
+            
+            // For extruded shapes, find and update the corresponding vertex on the other side
+            const totalVertices = positions.length / 3;
+            const isTopVertex = originalIndex < totalVertices * 1.5; // Rough heuristic
+            const correspondingIndex = isTopVertex 
+                ? originalIndex + totalVertices/2 
+                : originalIndex - totalVertices/2;
+            
+            if (correspondingIndex >= 0 && correspondingIndex < totalVertices) {
+                // Keep Z position opposite but maintain XY
+                positions[correspondingIndex * 3] = localPosition.x;
+                positions[correspondingIndex * 3 + 1] = localPosition.y;
+                positions[correspondingIndex * 3 + 2] = isTopVertex 
+                    ? localPosition.z - extrudeHeight 
+                    : localPosition.z + extrudeHeight;
+            }
+            
+            mesh.updateVerticesData(BABYLON.VertexBuffer.PositionKind, positions);
+        });
+        
+        sphere.addBehavior(dragBehavior);
+    };
+    
+
+    const saveModifiedShape = () => {
+        if (!shapeMeshRef.current || !sceneRef.current) return;
+        
+        const scene = sceneRef.current;
+        const currentMesh = shapeMeshRef.current;
+        
+        // 1. Get current vertex data
+        const positions = currentMesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+        if (!positions) return;
+        
+        // 2. Extract just the original base vertices (first half)
+        const baseVertices = [];
+        const vertexCount = positions.length / 3;
+        const baseVertexCount = vertexCount / 2; // For extruded shapes
+        
+        for (let i = 0; i < baseVertexCount; i++) {
+            baseVertices.push(
+                new BABYLON.Vector3(
+                    positions[i * 3],
+                    positions[i * 3 + 1],
+                    positions[i * 3 + 2]
+                )
+            );
+        }
+        
+        // 3. Rebuild the shape from the modified base
+        const extrudedMesh = BABYLON.MeshBuilder.ExtrudePolygon(
+            "rebuilt-shape",
+            {
+                shape: baseVertices,
+                depth: extrudeHeight,
+                sideOrientation: BABYLON.Mesh.DOUBLESIDE
+            },
+            scene,
+            earcut
+        );
+        
+        // 4. Apply original transformations
+        extrudedMesh.rotation.x = -Math.PI / 2;
+        extrudedMesh.position.copyFrom(currentMesh.position);
+        
+        // 5. Copy material
+        if (currentMesh.material) {
+            extrudedMesh.material = currentMesh.material;
+        }
+        
+        // 6. Update reference and clean up
+        shapeMeshRef.current = extrudedMesh;
+        currentMesh.dispose();
+        disableVertexEditMode();
+
+        if(vertexSpheres.current){
+            vertexSpheres.current.splice(0, vertexSpheres.current.length);
+            vertexSpheres.current = [];
+        }
+        
+        // 7. Return to selector mode
+        setMode("Selector");
+    };
+
     return (
         <div className="babylon-scene">
             <div className="cuboid-logo"><img src='/cuboid.svg' alt='logo'></img></div>
             <div className="reset-camera" onClick={resetCamera}>Reset Camera</div>
             <canvas ref = {canvasRef} style={{width: "100%", height:"100%"}}/>
-            <EditBar/>
+            <EditBar shapeMeshRef={shapeMeshRef.current} vertexEditMode={vertexEditMode}/>
 
             {
                 showExtrudeButton && extrudeButtonPosition && (
@@ -675,7 +952,21 @@ const BabylonScene : React.FC = () => {
             }
 
             {
-                mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight} onExitEditMode={exitEditMode}/>
+                mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight} onExitEditMode={exitEditMode} onClickDelete={handleDeleteShape}/>
+            }
+            {showSaveButton && 
+                <div className="vertex-edit-dialog">
+                    <div className="vertex-edit-heading">Vertex Edit</div>
+                    <div className="instruction-container">
+                        <div className="instruction-heading">Instructions</div>
+                        <div className="instruction-content">Click on any of the base vertices and drag to move it. Click on the 'Save Changes' button to see the updated shape!</div>
+                    </div>
+                    <div className="instruction-button-container">
+                        <button onClick={saveModifiedShape}>
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
             }
             <div className="mode-indicator">Current Mode: {mode}</div>
         </div>

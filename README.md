@@ -2,7 +2,7 @@
 A Vite + Babylon.js-based platform that allows you to draw 2D objects and convert them into 3D shapes.
 
 ![screenshot of the platform](public/home_ss.png)
-
+![screenshot of the platform](public/home_ss2.png)
 # Table of Contents  
 
 1. [How to Run This Project Locally](#how-to-run-this-project-locally)  

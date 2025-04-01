@@ -3,10 +3,13 @@
     transform: translateY(-50%);
     top: 50%;
     right: 20px;
-    height: 200px;
+    height: 250px;
     width: 200px;
     background-color: black;
     border-radius: 16px;
+
+    display: flex;
+    flex-direction: column;
 }
 
 .object-editor-head{
@@ -36,7 +39,12 @@
 }
 
 .object-editor-container{
+    flex: 1;
     padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    /* border: 1px solid red; */
 }
 
 .editor-option-heading{
@@ -51,6 +59,11 @@
     gap:6px;
     align-items: stretch;
     margin-top: 2px;
+}
+
+.editor-action-content{
+    font-size: 14px;
+    line-height: 18px;
 }
 
 .editor-button, .editor-input{
@@ -75,3 +88,21 @@
 .editor-input{
     width: 50px;
 } */
+
+.delete-shape-container{
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.delete-shape-container button{
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    /* background-color: rgb(27, 27, 27); */
+}
+.delete-shape-container button:hover{
+    /* background-color: rgb(100, 100, 100); */
+    cursor: pointer;
+}
