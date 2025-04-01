@@ -72,7 +72,7 @@ Modes can be selected from the **select bar** at the bottom.
 
 1. The task included multiple modes and variables, so I decided to use Vite, Babylon.js, and React. Since I was new to Babylon.js, I spent some time learning and understanding the framework. I learned how to create a scene in Babylon.js and explored different types of meshes [[https://doc.babylonjs.com/features/featuresDeepDive/mesh/creation/](https://doc.babylonjs.com/features/featuresDeepDive/mesh/creation/)].ChatGPT and DeepSeek were also really helpful in gaining a better understanding of this library and their functions.
 2. I created a simple 3D scene, set up the camera, added a central 3D axis, and fixed the navigation to move around the canvas.
-3. I created a global context to easily pass the operation mode (Selector, Draw and Editor) across components. I also built the bottom navbar and added functionality to switch between different modes.
+3. I created a global context to easily pass the operation mode (Selector, Draw, Editor, and Vertex Edit) across components. I also built the bottom navbar and added functionality to switch between different modes.
 4. I developed the functionality to draw on a given surface, recognize closed surfaces, and convert them into polygons. I am gradually learning and implementing other features, such as adding default extrusion to objects, adjusting the height of 3D shapes, and improving navigation around the canvas.
 
 I will clearly explain my approach in the following section.
@@ -103,7 +103,7 @@ I will clearly explain my approach in the following section.
 # **Future Implementation**
 
 1. Develop an alternative approach to updating the height of the 3D object without impacting performance.
-2. Implement the vertex editing feature.
+2. Implement the vertex editing feature. It has some bug.
 3. Enclose the selected object within a bounding box.
 4. Complete the additional bonus tasks mentioned in the email.
 5. Fix the **"Camera Reset"** button—currently, the user needs to click twice to reposition the camera.
