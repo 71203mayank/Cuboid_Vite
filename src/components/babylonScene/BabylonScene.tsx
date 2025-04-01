@@ -18,7 +18,6 @@ const BabylonScene : React.FC = () => {
         beta: Math.PI/2,
         radius: 10
     })
-
     const drawingPoints = useRef<BABYLON.Vector2[]>([]); // Vector3 array to store the points on the canvas
     const shapeMeshRef = useRef<BABYLON.Mesh | null>(null); // Stores closed shapes
     const lineMeshRef = useRef<BABYLON.LinesMesh | null>(null); // Stores the edges of 2D object while drawing.
@@ -147,6 +146,7 @@ const BabylonScene : React.FC = () => {
     },[]);
 
     // Function to reset camera back to its original position
+    /* Already have stored the initialCameraState, used that to reset */
     const resetCamera = () => {
         if(!sceneRef.current) return;
 
@@ -173,6 +173,7 @@ const BabylonScene : React.FC = () => {
     }, [mode, shapeMeshRef.current]);
 
     // Edit mode logic
+    // Drag Behavior is enabled only in "Edit Mode"
     const enterEditMode = () => {
         setMode("Edit");
         setupDragBehavior(true);
@@ -198,6 +199,10 @@ const BabylonScene : React.FC = () => {
     }
 
     // Fuction to add new edge while drawing the 2D object.
+    /* 
+        1. have stored all the vertices of the 2D shape in lineMeshRef.
+        2. Taking the new vertices from drawingPoints, making a line and updating my lineMeshRef.
+    */
     const updateLines = () => {
         if (!sceneRef.current) return;
         const scene = sceneRef.current;
@@ -214,12 +219,17 @@ const BabylonScene : React.FC = () => {
         lineMeshRef.current = BABYLON.MeshBuilder.CreateLines("drawingLines", { points: linePoints3D }, scene);
     };
 
-    // Function to handle mouse events.
+    // Function to Handle mouse event for drawing the 2D shape:
+    /*
+        1. Get the point on the canvas where cursor is present
+        2. Get the last vertex pushed into drawingPoints.
+        3. Make a line b/w the above two points and assign it to cursorLineRef.
+    */
     const handleMouseMove = (event: MouseEvent) => {
         if (!isDrawing || drawingPoints.current.length === 0 || !sceneRef.current) return;
         const scene = sceneRef.current;
         
-        // Extract the point where cursor was clicked.
+        // Extract the point where ever mouse cursor is following
         const pickResult = scene.pick(event.clientX, event.clientY);
         if (pickResult?.pickedPoint) {
             const lastPoint = drawingPoints.current[drawingPoints.current.length - 1];
@@ -453,6 +463,11 @@ const BabylonScene : React.FC = () => {
     
 
     //function to handle extrude
+    /*
+        1. Get the vertices of the 2D shape and convert into 3D (z = 0)
+        2. extrude using inbuilt function "extrudePolygon"
+        3. Rotate the extrudedMesh to align with the z axis.
+    */
     const onClickExtrude = () => {
         console.log("clicked extrude button, going to edit mode...")
         // console.log("selecte shape", selectedShape);
@@ -571,44 +586,8 @@ const BabylonScene : React.FC = () => {
         }
     };
 
-    // const confirmPositionUpdate = () => {
-    //     if (!shapeMeshRef.current) return;
-        
-    //     // Force React to recognize the reference update
-    //     const updatedMesh = shapeMeshRef.current;
-    //     shapeMeshRef.current = updatedMesh;
-        
-    //     // Reapply drag behavior if needed
-    //     setupDragBehavior(mode === "Edit");
-    // };
 
-    // const confirmPositionUpdate = () => {
-    //     if (!shapeMeshRef.current || !wasDragged) return;
-        
-    //     // Clone the mesh to ensure a fresh reference
-    //     const currentMesh = shapeMeshRef.current;
-    //     const scene = sceneRef.current;
-        
-    //     // Create new mesh with current properties
-    //     const newMesh = currentMesh.clone("shape-" + Date.now());
-    //     newMesh.position = currentMesh.position.clone();
-    //     newMesh.rotation = currentMesh.rotation.clone();
-    //     newMesh.material = currentMesh.material;
-        
-    //     // Update the reference
-    //     shapeMeshRef.current = newMesh;
-        
-    //     // Dispose old mesh
-    //     currentMesh.dispose();
-        
-    //     // Reset drag state
-    //     setWasDragged(false);
-        
-    //     // Re-enable drag behavior
-    //     setupDragBehavior(true);
-    // };
-
-    // Function to enable/disable draggin of 3D objects
+    // Function to enable/disable dragging of 3D objects
     const setupDragBehavior = (enable: boolean) => {
         if(!shapeMeshRef.current || !sceneRef.current) return;
 
@@ -814,7 +793,7 @@ const BabylonScene : React.FC = () => {
         setShowSaveButton(false);
     };
 
-
+    // Function to enable/disable dragging of vertices
     const setupVertexDragBehavior = (sphere: BABYLON.Mesh, rotationMatrix: BABYLON.Matrix) => {
         if (!shapeMeshRef.current || !sceneRef.current) return;
         
@@ -871,7 +850,7 @@ const BabylonScene : React.FC = () => {
         sphere.addBehavior(dragBehavior);
     };
     
-
+    // Saves the modifed object: It creates a whole new 3D object from the new coordinated.
     const saveModifiedShape = () => {
         if (!shapeMeshRef.current || !sceneRef.current) return;
         

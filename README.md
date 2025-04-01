@@ -53,7 +53,7 @@ Modes can be selected from the **select bar** at the bottom.
 
 ### **Draw Mode:**
 
-1. Any 2D shape can be drawn in this mode.
+1. Users are given with a drawing canvas in XY plane where any 2D shape can be drawn.
 2. Once the shape is closed, a button appears to convert the 2D shape into a 3D object. Clicking the button switches the mode to **Edit**, and a default extrusion height is applied.
 
 ### **Edit Mode:**
