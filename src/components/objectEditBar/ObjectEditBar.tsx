@@ -4,7 +4,7 @@ import "./ObjectEditBar.css"
 interface ObjectEditBarProps {
     currentHeight : number;
     onHeightChange: (newHeight: number) => void;
-    onExitEditMode: () => void
+    onExitEditMode: () => void;
 }
 
 const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightChange, onExitEditMode}) => {
@@ -41,6 +41,20 @@ const ObjectEditBar : React.FC<ObjectEditBarProps> = ({currentHeight, onHeightCh
                         <button className="editor-button" onClick={handleHeightIncrement}>+</button>
                     </div>
                 </div>
+                {/* <div className="vertex-edit-section">
+                    <button 
+                        className={`vertex-edit-button ${isVertexEditMode ? 'active' : ''}`}
+                        onClick={onVertexEditToggle}
+                    >
+                        {isVertexEditMode ? 'Exit Vertex Edit' : 'Move Vertices'}
+                    </button>
+                    
+                    {isVertexEditMode && (
+                        <div className="vertex-edit-hint">
+                            Click on any vertex to move it
+                        </div>
+                    )}
+                </div> */}
             </div>
         </div>
     );

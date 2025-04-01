@@ -30,8 +30,6 @@ const BabylonScene : React.FC = () => {
     const [extrudeButtonPosition, setExtrudeButtonPosition] = useState<{x: number, y: number}| null>(null);
     const [extrudeHeight, setExtrudeHeight] = useState<number>(5);
     const dragBehaviorRef = useRef<BABYLON.PointerDragBehavior | null>(null);
-    // const [wasDragged, setWasDragged] = useState<boolean>(false);
-    // const originalColorRef = useRef<BABYLON.Color3 | null>(null);
 
     useEffect (() => {
         if(canvasRef.current == null ) return;
@@ -67,7 +65,7 @@ const BabylonScene : React.FC = () => {
         // Ground Plane
         const ground = BABYLON.MeshBuilder.CreateGround(
             "ground",
-            {width: 10, height: 10},
+            {width: 15, height: 15},
             scene
         );
         ground.rotation.x = Math.PI / 2;
@@ -367,7 +365,7 @@ const BabylonScene : React.FC = () => {
 
             // If there are more than 2 vertices and the distance b/w 1st and last points is less than threshold, close it
             if(points.length > 2 && BABYLON.Vector2.Distance(points[0], points[points.length-1]) < distanceThreshold){
-                alert("shape closed");
+                // alert("shape closed");
                 points.pop();
                 points.push(points[0]);
                 createPolygon(points);
@@ -482,13 +480,14 @@ const BabylonScene : React.FC = () => {
             "extrudedShape",
             {
                 shape: shapePoints,
-                depth: extrudeHeight,
+                depth: 5,
                 sideOrientation: BABYLON.Mesh.DOUBLESIDE // Ensure both sides are visible
             },
             scene,
             earcut
         )
 
+        setExtrudeHeight(5);
         // Rotate the extruded shape to aling with the z axis
         extrudedMesh.rotation.x = -Math.PI / 2;
         extrudedMesh.position.y = 0;
@@ -656,41 +655,9 @@ const BabylonScene : React.FC = () => {
         }
     }
 
-    // const updateShapeMeshRef = () => {
-    //     if (!shapeMeshRef.current || !sceneRef.current) return;
-        
-    //     // Clone the current mesh to ensure reference is fresh
-    //     const currentMesh = shapeMeshRef.current;
-    //     const scene = sceneRef.current;
-        
-    //     // Get current vertex data
-    //     const vertexData = BABYLON.VertexData.ExtractFromMesh(currentMesh);
-        
-    //     // Create new mesh (optional - only if you need a clean reference)
-    //     const newMesh = new BABYLON.Mesh(currentMesh.name, scene);
-    //     vertexData.applyToMesh(newMesh);
-        
-    //     // Copy transformations
-    //     newMesh.position = currentMesh.position.clone();
-    //     newMesh.rotation = currentMesh.rotation.clone();
-    //     newMesh.scaling = currentMesh.scaling.clone();
-        
-    //     // Copy material
-    //     newMesh.material = currentMesh.material;
-        
-    //     // Update the reference
-    //     shapeMeshRef.current = newMesh;
-        
-    //     // Dispose old mesh
-    //     currentMesh.dispose();
-        
-    //     // Re-enable drag on new mesh
-    //     setupDragBehavior(true);
-    // };
-    
-
     return (
         <div className="babylon-scene">
+            <div className="cuboid-logo"><img src='/cuboid.svg' alt='logo'></img></div>
             <div className="reset-camera" onClick={resetCamera}>Reset Camera</div>
             <canvas ref = {canvasRef} style={{width: "100%", height:"100%"}}/>
             <EditBar/>
@@ -710,25 +677,7 @@ const BabylonScene : React.FC = () => {
             {
                 mode == "Edit" && <ObjectEditBar currentHeight={extrudeHeight} onHeightChange={updateExtrusionHeight} onExitEditMode={exitEditMode}/>
             }
-            {/* {
-                mode === "Edit" && wasDragged && (
-                    <button onClick={confirmPositionUpdate}
-                    style={{
-                        position: 'absolute',
-                        bottom: '20px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        zIndex: 100,
-                        padding: '8px 16px',
-                        background: '#4CAF50',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                    > Confirm New Position </button>
-                )
-            } */}
+            <div className="mode-indicator">Current Mode: {mode}</div>
         </div>
     );
 };

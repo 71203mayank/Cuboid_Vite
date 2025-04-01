@@ -16,7 +16,7 @@ const EditBar : React.FC = () => {
         {
             mode: "Draw",
             logo: "/pen.svg"
-        }
+        },
     ]
     return(
         <div className="edit-bar">

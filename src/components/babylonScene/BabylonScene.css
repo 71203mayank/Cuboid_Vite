@@ -6,9 +6,29 @@
 
 .reset-camera{
     position: absolute;
-    right: 1rem;
-    top: 1rem;
+    right: 20px;
+    top: 20px;
+    font-weight: 700;
 }
 .reset-camera:hover{
     cursor: pointer;
+}
+
+.mode-indicator{
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+    font-weight: 700;
+}
+
+.cuboid-logo{
+    position: absolute;
+    top:10px;
+    left: 20px;
+    height: 50px;
+    width: 50px;
+}
+.cuboid-logo img{
+    height: 100%;
+    width: 100%;
 }
