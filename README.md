@@ -41,6 +41,7 @@ Before you begin, make sure **Node.js** is installed on your machine.
 1. **Scroll** – Move vertically.
 2. **Shift + Scroll** – Move horizontally.
 3. **Control + Scroll** – Zoom in and out.
+4. **Right Click + Drag** - To rotate the camera.
 
 ## **Modes:**
 
